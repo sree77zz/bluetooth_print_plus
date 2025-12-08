@@ -371,7 +371,7 @@ public class BluetoothPrintPlusPlugin
         if (requestCode == REQUEST_LOCATION_PERMISSIONS) {
 
             if (pendingResult == null) {
-                Log.e(TAG, "pendingResult is NULL – plugin bug");
+                LogUtils.e(TAG, "pendingResult is NULL – plugin bug");
                 return false;      // no crash
             }
 

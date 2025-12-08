@@ -246,32 +246,38 @@ public class BluetoothPrintPlusPlugin
     }
   }
 
-  private void startScan(Result result) {
-    LogUtils.i(TAG, "start scan...");
-    try {
-      String[] perms = {
-          Manifest.permission.BLUETOOTH,
-          Manifest.permission.BLUETOOTH_ADMIN,
-          Manifest.permission.BLUETOOTH_CONNECT,
-          Manifest.permission.BLUETOOTH_SCAN,
-          Manifest.permission.ACCESS_FINE_LOCATION,
-      };
-      if (EasyPermissions.hasPermissions(this.context, perms)) {
-        // Already have permission, do the thing
-        startScan();
-      } else {
-        // Do not have permissions, request them now
-        EasyPermissions.requestPermissions(
-                this.activity,
-                "Bluetooth requires location permission!!!",
-                REQUEST_LOCATION_PERMISSIONS,
-                perms);
-      }
-      result.success(null);
-    } catch (Exception e) {
-      result.error("startScan", e.getMessage(), e);
+    private void startScan(Result result) {
+        LogUtils.i(TAG, "start scan...");
+        Log.d("MyForkCheck", "startScan called from forked plugin!");
+        try {
+            String[] perms = {
+                    Manifest.permission.BLUETOOTH,
+                    Manifest.permission.BLUETOOTH_ADMIN,
+                    Manifest.permission.BLUETOOTH_CONNECT,
+                    Manifest.permission.BLUETOOTH_SCAN,
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+            };
+
+            if (EasyPermissions.hasPermissions(this.context, perms)) {
+                // Already have permission, do the thing
+                startScan();
+                result.success(null);   // permission already granted
+            } else {
+                // Save pending result so we can complete it later
+                pendingResult = result;
+
+                // Request permission
+                EasyPermissions.requestPermissions(
+                        this.activity,
+                        "Bluetooth requires location permission!!!",
+                        REQUEST_LOCATION_PERMISSIONS,
+                        perms);
+            }
+
+        } catch (Exception e) {
+            result.error("startScan", e.getMessage(), e);
+        }
     }
-  }
 
   private void invokeMethodUIThread(BluetoothDevice device) {
     final Map<String, Object> ret = new HashMap<>();
@@ -358,20 +364,31 @@ public class BluetoothPrintPlusPlugin
     return result;
   }
 
-  @Override
-  public boolean onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
-    LogUtils.d(TAG, "onRequestPermissionsResult");
-    if (requestCode == REQUEST_LOCATION_PERMISSIONS) {
-      if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-        startScan();
-      } else {
-        pendingResult.error("no_permissions", "this plugin requires location permissions for scanning", null);
-        pendingResult = null;
-      }
-      return true;
+    @Override
+    public boolean onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        LogUtils.d(TAG, "onRequestPermissionsResult");
+
+        if (requestCode == REQUEST_LOCATION_PERMISSIONS) {
+
+            if (pendingResult == null) {
+                Log.e(TAG, "pendingResult is NULL – plugin bug");
+                return false;      // no crash
+            }
+
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                startScan();
+                pendingResult.success(null);
+            } else {
+                pendingResult.error("no_permissions",
+                        "this plugin requires location permissions for scanning",
+                        null);
+            }
+
+            pendingResult = null;   // reset
+            return true;
+        }
+        return false;
     }
-    return false;
-  }
 
   private final StreamHandler stateHandler = new StreamHandler() {
     // private EventSink sink;

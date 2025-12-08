@@ -238,7 +238,7 @@ public class BluetoothPrintPlusPlugin
         case BluetoothAdapter.STATE_ON:
           result.success(BPPState.BlueOn.getValue());
           break;
-        default:
+        default:x
           break;
       }
     } catch (SecurityException e) {
@@ -248,7 +248,7 @@ public class BluetoothPrintPlusPlugin
 
     private void startScan(Result result) {
         LogUtils.i(TAG, "start scan...");
-        Log.d("MyForkCheck", "startScan called from forked plugin!");
+        Log.i(TAG, "startScan called from forked plugin!");
         try {
             String[] perms = {
                     Manifest.permission.BLUETOOTH,

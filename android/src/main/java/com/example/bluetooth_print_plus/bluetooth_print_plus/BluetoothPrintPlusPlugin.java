@@ -248,7 +248,6 @@ public class BluetoothPrintPlusPlugin
 
     private void startScan(Result result) {
         LogUtils.i(TAG, "start scan...");
-        LogUtils.i(TAG, "startScan called from forked plugin!");
         try {
             String[] perms = {
                     Manifest.permission.BLUETOOTH,
@@ -259,24 +258,54 @@ public class BluetoothPrintPlusPlugin
             };
 
             if (EasyPermissions.hasPermissions(this.context, perms)) {
-                // Already have permission, do the thing
-                startScan();
-                result.success(null);   // permission already granted
+                // Already have permissions
+                if (mBluetoothAdapter.isDiscovering()) {
+                    mBluetoothAdapter.cancelDiscovery();
+                }
+                startScan();           // start discovery
+                result.success(null);  // notify Flutter immediately
             } else {
-                // Save pending result so we can complete it later
-                pendingResult = result;
+                // Only set pendingResult if not already pending
+                if (pendingResult == null) {
+                    pendingResult = result;
+                } else {
+                    LogUtils.w(TAG, "pendingResult already exists, ignoring new request");
+                    result.success(null);
+                    return;
+                }
 
-                // Request permission
                 EasyPermissions.requestPermissions(
                         this.activity,
                         "Bluetooth requires location permission!!!",
                         REQUEST_LOCATION_PERMISSIONS,
-                        perms);
+                        perms
+                );
             }
-
         } catch (Exception e) {
             result.error("startScan", e.getMessage(), e);
         }
+    }
+
+    @Override
+    public boolean onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        LogUtils.d(TAG, "onRequestPermissionsResult");
+        if (requestCode == REQUEST_LOCATION_PERMISSIONS) {
+            if (pendingResult == null) {
+                LogUtils.w(TAG, "pendingResult is NULL – cannot notify Flutter, skipping");
+                return false;
+            }
+
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                if (mBluetoothAdapter.isDiscovering()) mBluetoothAdapter.cancelDiscovery();
+                startScan();
+                pendingResult.success(null);  // safely notify Flutter
+            } else {
+                pendingResult.error("no_permissions", "this plugin requires location permissions for scanning", null);
+            }
+            pendingResult = null; // reset
+            return true;
+        }
+        return false;
     }
 
   private void invokeMethodUIThread(BluetoothDevice device) {
@@ -367,24 +396,20 @@ public class BluetoothPrintPlusPlugin
     @Override
     public boolean onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         LogUtils.d(TAG, "onRequestPermissionsResult");
-
         if (requestCode == REQUEST_LOCATION_PERMISSIONS) {
-
             if (pendingResult == null) {
-                LogUtils.e(TAG, "pendingResult is NULL – plugin bug");
-                return false;      // no crash
+                LogUtils.w(TAG, "pendingResult is NULL – cannot notify Flutter, skipping");
+                return false;
             }
 
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                if (mBluetoothAdapter.isDiscovering()) mBluetoothAdapter.cancelDiscovery();
                 startScan();
-                pendingResult.success(null);
+                pendingResult.success(null);  // safely notify Flutter
             } else {
-                pendingResult.error("no_permissions",
-                        "this plugin requires location permissions for scanning",
-                        null);
+                pendingResult.error("no_permissions", "this plugin requires location permissions for scanning", null);
             }
-
-            pendingResult = null;   // reset
+            pendingResult = null; // reset
             return true;
         }
         return false;

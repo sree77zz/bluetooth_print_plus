@@ -248,7 +248,7 @@ public class BluetoothPrintPlusPlugin
 
     private void startScan(Result result) {
         LogUtils.i(TAG, "start scan...");
-        Log.i(TAG, "startScan called from forked plugin!");
+        LogUtils.i(TAG, "startScan called from forked plugin!");
         try {
             String[] perms = {
                     Manifest.permission.BLUETOOTH,

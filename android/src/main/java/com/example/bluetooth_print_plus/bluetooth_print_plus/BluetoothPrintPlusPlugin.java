@@ -247,7 +247,7 @@ public class BluetoothPrintPlusPlugin
     }
 
     private void startScan(final Result result) {
-        Log.i(TAG, "start scan...");
+        LogUtils.i(TAG, "start scan...");
 
         // We assume Flutter (permission_handler) already granted all required perms.
         // Just start scanning. No more runtime permission dialogs here.
@@ -345,7 +345,7 @@ public class BluetoothPrintPlusPlugin
 
     @Override
     public boolean onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
-        Log.d(TAG, "onRequestPermissionsResult");
+        LogUtils.d(TAG, "onRequestPermissionsResult");
 
         if (requestCode != REQUEST_LOCATION_PERMISSIONS) {
             return false; // not our request code
@@ -355,10 +355,10 @@ public class BluetoothPrintPlusPlugin
         if (grantResults != null
                 && grantResults.length > 0
                 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-            Log.d(TAG, "Permissions granted in onRequestPermissionsResult");
+            LogUtils.d(TAG, "Permissions granted in onRequestPermissionsResult");
             startScan();
         } else {
-            Log.w(TAG, "Permissions denied or cancelled in onRequestPermissionsResult");
+            LogUtils.w(TAG, "Permissions denied or cancelled in onRequestPermissionsResult");
 
             if (pendingResult != null) {
                 pendingResult.error(
@@ -369,7 +369,7 @@ public class BluetoothPrintPlusPlugin
                 pendingResult = null;
             } else {
                 // Avoid NPE
-                Log.w(TAG, "pendingResult is null, cannot send error back to Flutter");
+                LogUtils.w(TAG, "pendingResult is null, cannot send error back to Flutter");
             }
         }
 

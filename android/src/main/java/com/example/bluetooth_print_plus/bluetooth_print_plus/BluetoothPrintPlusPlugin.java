@@ -246,33 +246,15 @@ public class BluetoothPrintPlusPlugin
         }
     }
 
-    private void startScan(Result result) {
-        LogUtils.i(TAG, "start scan...");
-        try {
-            String[] perms = {
-                    Manifest.permission.BLUETOOTH,
-                    Manifest.permission.BLUETOOTH_ADMIN,
-                    Manifest.permission.BLUETOOTH_CONNECT,
-                    Manifest.permission.BLUETOOTH_SCAN,
-                    Manifest.permission.ACCESS_FINE_LOCATION,
-            };
-            LogUtils.i(TAG, "ALL PERMISSIONS ::"+ java.util.Arrays.toString(perms));
-            if (EasyPermissions.hasPermissions(this.context, perms)) {
-                LogUtils.i(TAG, "Has the permission to do the thing ...");
-                // Already have permission, do the thing
-                startScan();
-            } else {
-                LogUtils.i(TAG, "Requesting permissions ...");
-                // Do not have permissions, request them now
-                EasyPermissions.requestPermissions(
-                        this.activity,
-                        "Bluetooth requires location permission!!!",
-                        REQUEST_LOCATION_PERMISSIONS,
-                        perms);
-            }
+    private void startScan(final Result result) {
+        Log.i(TAG, "start scan...");
+
+        // We assume Flutter (permission_handler) already granted all required perms.
+        // Just start scanning. No more runtime permission dialogs here.
+        startScan();  // <- keep this, this is the actual scan logic
+
+        if (result != null) {
             result.success(null);
-        } catch (Exception e) {
-            result.error("startScan", e.getMessage(), e);
         }
     }
 
@@ -363,19 +345,35 @@ public class BluetoothPrintPlusPlugin
 
     @Override
     public boolean onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
-        LogUtils.d(TAG, "onRequestPermissionsResult");
-        LogUtils.d(TAG, "requestCode " + requestCode);
-        if (requestCode == REQUEST_LOCATION_PERMISSIONS) {
-            LogUtils.d(TAG, "grantResults " + grantResults[0]);
-            if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                startScan();
-            } else {
-                pendingResult.error("no_permissions", "this plugin requires location permissions for scanning", null);
-                pendingResult = null;
-            }
-            return true;
+        Log.d(TAG, "onRequestPermissionsResult");
+
+        if (requestCode != REQUEST_LOCATION_PERMISSIONS) {
+            return false; // not our request code
         }
-        return false;
+
+        // We don't actually use this flow anymore, but keep it safe:
+        if (grantResults != null
+                && grantResults.length > 0
+                && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            Log.d(TAG, "Permissions granted in onRequestPermissionsResult");
+            startScan();
+        } else {
+            Log.w(TAG, "Permissions denied or cancelled in onRequestPermissionsResult");
+
+            if (pendingResult != null) {
+                pendingResult.error(
+                        "no_permissions",
+                        "this plugin requires location permissions for scanning",
+                        null
+                );
+                pendingResult = null;
+            } else {
+                // Avoid NPE
+                Log.w(TAG, "pendingResult is null, cannot send error back to Flutter");
+            }
+        }
+
+        return true;
     }
 
     private final StreamHandler stateHandler = new StreamHandler() {

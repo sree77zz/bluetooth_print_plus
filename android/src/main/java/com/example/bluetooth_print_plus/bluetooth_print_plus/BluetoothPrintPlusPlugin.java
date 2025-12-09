@@ -361,8 +361,9 @@ public class BluetoothPrintPlusPlugin
     @Override
     public boolean onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         LogUtils.d(TAG, "onRequestPermissionsResult");
+        LogUtils.d(TAG, "requestCode " + requestCode);
         if (requestCode == REQUEST_LOCATION_PERMISSIONS) {
-            LogUtils.d(TAG, grantResults[0]);
+            LogUtils.d(TAG, "grantResults " + grantResults[0]);
             if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 startScan();
             } else {

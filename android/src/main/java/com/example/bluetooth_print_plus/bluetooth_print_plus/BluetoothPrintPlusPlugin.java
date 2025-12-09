@@ -256,18 +256,27 @@ public class BluetoothPrintPlusPlugin
                     Manifest.permission.BLUETOOTH_SCAN,
                     Manifest.permission.ACCESS_FINE_LOCATION,
             };
+
+            // If we already have permissions, start discovery immediately and return success to Dart.
             if (EasyPermissions.hasPermissions(this.context, perms)) {
-                // Already have permission, do the thing
                 startScan();
-            } else {
-                // Do not have permissions, request them now
-                EasyPermissions.requestPermissions(
-                        this.activity,
-                        "Bluetooth requires location permission!!!",
-                        REQUEST_LOCATION_PERMISSIONS,
-                        perms);
+                result.success(null);
+                return;
             }
-            result.success(null);
+
+            // We don't have permissions -> save result so we can respond later after user action.
+            // Important: store pendingResult BEFORE requesting permissions so callback can use it.
+            this.pendingResult = result;
+
+            // Request permissions; the callback will handle the rest.
+            EasyPermissions.requestPermissions(
+                    this.activity,
+                    "Bluetooth requires location permission!!!",
+                    REQUEST_LOCATION_PERMISSIONS,
+                    perms
+            );
+
+            // Do not call result.success here — we'll reply in onRequestPermissionsResult after grant.
         } catch (Exception e) {
             result.error("startScan", e.getMessage(), e);
         }
@@ -362,13 +371,42 @@ public class BluetoothPrintPlusPlugin
     public boolean onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         LogUtils.d(TAG, "onRequestPermissionsResult");
         LogUtils.d(TAG, "requestCode " + requestCode);
+
         if (requestCode == REQUEST_LOCATION_PERMISSIONS) {
-            LogUtils.d(TAG, "grantResults " + grantResults[0]);
-            if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                startScan();
+            // Defensive checks
+            int granted = PackageManager.PERMISSION_DENIED;
+            if (grantResults != null && grantResults.length > 0) {
+                granted = grantResults[0];
+            }
+
+            LogUtils.d(TAG, "grantResults " + (grantResults != null && grantResults.length > 0 ? grantResults[0] : 0));
+
+            if (granted == PackageManager.PERMISSION_GRANTED) {
+                // Start scanning now that permissions were granted
+                try {
+                    startScan();
+                } catch (Exception e) {
+                    LogUtils.e(TAG, "startScan failed after permission grant", e);
+                }
+                // Respond to pendingResult if present
+                if (this.pendingResult != null) {
+                    this.pendingResult.success(null);
+                    this.pendingResult = null;
+                }
             } else {
-                pendingResult.error("no_permissions", "this plugin requires location permissions for scanning", null);
-                pendingResult = null;
+                // Permission denied — respond gracefully and avoid NPE
+                LogUtils.w(TAG, "Permissions denied for Bluetooth scanning");
+                if (this.pendingResult != null) {
+                    try {
+                        this.pendingResult.error("no_permissions", "this plugin requires location permissions for scanning", null);
+                    } catch (Exception e) {
+                        LogUtils.e(TAG, "Error responding to pendingResult", e);
+                    } finally {
+                        this.pendingResult = null;
+                    }
+                } else {
+                    LogUtils.w(TAG, "pendingResult was null when permissions denied — nothing to reply to.");
+                }
             }
             return true;
         }

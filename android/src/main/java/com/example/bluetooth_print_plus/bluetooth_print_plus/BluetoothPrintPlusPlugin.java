@@ -256,10 +256,13 @@ public class BluetoothPrintPlusPlugin
                     Manifest.permission.BLUETOOTH_SCAN,
                     Manifest.permission.ACCESS_FINE_LOCATION,
             };
+            LogUtils.i(TAG, "ALL PERMISSIONS ::"+ java.util.Arrays.toString(perms));
             if (EasyPermissions.hasPermissions(this.context, perms)) {
+                LogUtils.i(TAG, "Has the permission to do the thing ...");
                 // Already have permission, do the thing
                 startScan();
             } else {
+                LogUtils.i(TAG, "Requesting permissions ...");
                 // Do not have permissions, request them now
                 EasyPermissions.requestPermissions(
                         this.activity,

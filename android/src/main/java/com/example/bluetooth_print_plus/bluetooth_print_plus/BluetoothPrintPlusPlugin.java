@@ -256,31 +256,18 @@ public class BluetoothPrintPlusPlugin
                     Manifest.permission.BLUETOOTH_SCAN,
                     Manifest.permission.ACCESS_FINE_LOCATION,
             };
-
             if (EasyPermissions.hasPermissions(this.context, perms)) {
-                // Already have permissions
-                if (mBluetoothAdapter.isDiscovering()) {
-                    mBluetoothAdapter.cancelDiscovery();
-                }
-                startScan();           // start discovery
-                result.success(null);  // notify Flutter immediately
+                // Already have permission, do the thing
+                startScan();
             } else {
-                // Only set pendingResult if not already pending
-                if (pendingResult == null) {
-                    pendingResult = result;
-                } else {
-                    LogUtils.w(TAG, "pendingResult already exists, ignoring new request");
-                    result.success(null);
-                    return;
-                }
-
+                // Do not have permissions, request them now
                 EasyPermissions.requestPermissions(
                         this.activity,
                         "Bluetooth requires location permission!!!",
                         REQUEST_LOCATION_PERMISSIONS,
-                        perms
-                );
+                        perms);
             }
+            result.success(null);
         } catch (Exception e) {
             result.error("startScan", e.getMessage(), e);
         }
@@ -375,19 +362,13 @@ public class BluetoothPrintPlusPlugin
     public boolean onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         LogUtils.d(TAG, "onRequestPermissionsResult");
         if (requestCode == REQUEST_LOCATION_PERMISSIONS) {
-            if (pendingResult == null) {
-                LogUtils.w(TAG, "pendingResult is NULL – cannot notify Flutter, skipping");
-                return false;
-            }
-
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                if (mBluetoothAdapter.isDiscovering()) mBluetoothAdapter.cancelDiscovery();
+            LogUtils.d(TAG, grantResults[0]);
+            if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 startScan();
-                pendingResult.success(null);  // safely notify Flutter
             } else {
                 pendingResult.error("no_permissions", "this plugin requires location permissions for scanning", null);
+                pendingResult = null;
             }
-            pendingResult = null; // reset
             return true;
         }
         return false;
